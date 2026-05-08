@@ -2,17 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\supporters;
-use Carbon\Carbon;
-use App\Models\Ticket;
-use App\Models\Nominee;
-use App\Models\documents;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\{Auth, Crypt, Hash, URL};
 use Illuminate\Support\Str;
+use Carbon\Carbon;
+
+use App\Models\{Nominee, Ticket, documents, supporters};
 use Psy\Sudo;
 
 class TicketController extends Controller
@@ -40,7 +35,7 @@ class TicketController extends Controller
     public function show(Ticket $ticket)
     {
         $nominee = Nominee::where('reg_number', $ticket->school_id)->first();
-        dd($nominee);
+        // dd($nominee);
 
         return view('livewire.admin.voucherShow', compact('ticket', 'nominee'));
     }
@@ -129,7 +124,7 @@ class TicketController extends Controller
             // keep bcrypt hash for login
             'Password' => bcrypt($plainPassword),
             // store reversible encrypted plaintext for admin display
-            'password_encrypted' => Crypt::encryptString($plainPassword),
+           
             'expire_at' => now()->addDays(5),
         ]);
 

@@ -213,7 +213,7 @@
 
         <div>
           <label class="inline-flex items-center">
-            <input name="verified" type="checkbox"  required class="mr-2" />
+            <input name="verified" type="checkbox"   class="mr-2" />
             I hereby confirm that the information provided above is true and correct.
           </label>
         </div>
@@ -286,11 +286,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Date:</label>
-            <input  name="guarantor[1][date]" type="date" value="{{ old('guarantor[1][date]') }} " id="guarantor1Date" class="w-full p-2 border border-gray-300 rounded-md" required />
+            <input  name="guarantor[1][date]" type="date" value="{{ old('guarantor[1][date]') }} " id="guarantor1Date" class="w-full p-2 border border-gray-300 rounded-md"  />
           </div>
           <div>
             <label class="inline-flex items-center">
-              <input name="guarantor[1][verified]" type="checkbox" required class="mr-2" />
+              <input name="guarantor[1][verified]" type="checkbox" class="mr-2" />
               I (Guarantor 1) support this nomination.
             </label>
           </div>
@@ -331,11 +331,11 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Date:</label>
-            <input  name="guarantor[2][date]" value="{{ old('guarantor[2][date]') }} " type="date" id="guarantor2Date" class="w-full p-2 border border-gray-300 rounded-md" required />
+            <input  name="guarantor[2][date]" value="{{ old('guarantor[2][date]') }} " type="date" id="guarantor2Date" class="w-full p-2 border border-gray-300 rounded-md"  />
           </div>
           <div>
             <label class="inline-flex items-center">
-              <input name="guarantor[2][verified]" type="checkbox" required class="mr-2" />
+              <input name="guarantor[2][verified]" type="checkbox"  class="mr-2" />
               I (Guarantor 2) support this nomination.
             </label>
           </div>
@@ -343,13 +343,13 @@
       </div>
 
       <div class="mt-6 flex justify-between">
-        <button type="button" onclick="generatePrintableForm()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+        <button type="button" onclick="generatePrintableForm()" class="bg-blue-600 text-white px-4 py-2 m-2 rounded-md hover:bg-blue-700">
           Preview & Print Form
         </button>
-        <button type="submit" name="action" value="save" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+        <button type="submit" name="action" value="save" class="bg-green-600 text-white px-4 py-2  m-2 rounded-md hover:bg-green-700">
           Save & Continue
         </button>
-        <button type="submit" name="action" value="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
+        <button type="submit" name="action" value="submit" class="bg-red-600 text-white px-4 py-2 m-2 rounded-md hover:bg-red-700">
           Submit Nomination
         </button>
       </div>

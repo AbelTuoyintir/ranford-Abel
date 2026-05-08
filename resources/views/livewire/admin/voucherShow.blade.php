@@ -78,7 +78,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div class="bg-gray-50 rounded-lg p-4 text-center">
                             <p class="text-xs text-gray-500 uppercase tracking-wide">Issued To</p>
-                            <p id="displayName" class="text-lg font-bold text-ucc-blue mt-1">{{ $ticket->full_name }}</p>
+                            <p id="displayName" class="text-lg font-bold text-ucc-blue mt-1">{{ $displayName }}</p>
                         </div>
                         <div class="bg-gray-50 rounded-lg p-4 text-center">
                             <p class="text-xs text-gray-500 uppercase tracking-wide">Registration ID</p>

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\Crypt;
+
 use App\Models\User;
 
 class Ticket extends Authenticatable
@@ -14,7 +15,6 @@ class Ticket extends Authenticatable
         'name',
         'team',
         'Password',
-        'password_encrypted',
         'school_id',
         'expire_at',
     ];

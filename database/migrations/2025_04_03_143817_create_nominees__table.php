@@ -23,7 +23,7 @@ class CreateNomineesTable extends Migration
             $table->string('photo_path')->nullable();
             $table->boolean('verified')->default(false)->nullable();
             $table->enum('role', ['applicant','nominee', 'aspirant', 'candidate'])->default('nominee');
-            $table->enum('status', ['draft', 'submitted', 'approved', 'rejected'])->default('draft');
+            $table->enum('status', ['draft', 'submitted', 'saved','approved', 'rejected'])->default('draft');
             $table->text('rejection_reason')->nullable();
             $table->timestamps();
         
