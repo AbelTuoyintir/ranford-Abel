@@ -279,16 +279,24 @@ private function fetchCgpaFromApi($schoolId)
 
     public function storeDocuments(Request $request, Nominee $user)
 {
-    $action = $request->input('action', 'submit');
+    $action = $request->input('action', 'save');  // Changed default to 'save'
     $isSubmit = $action === 'submit';
+    $isDraft = $action === 'save';
+    
     $ticketUser = Auth::guard('ticket')->user();
 
     if (!$ticketUser || strtoupper($ticketUser->school_id) !== strtoupper($user->reg_number)) {
         return back()->with('error', 'Unauthorized document action.');
     }
 
-    if (in_array($user->status, ['submitted', 'approved', 'rejected'], true)) {
-        return back()->with('error', 'Your submission is locked and can no longer be edited.');
+    // Check if already submitted - prevent further edits
+    if (in_array($user->status, ['approved', 'rejected'], true)) {
+        return back()->with('error', 'Your submission is approved/rejected and can no longer be edited.');
+    }
+
+    // For draft saves, allow even if status is 'submitted' but not approved/rejected
+    if ($isSubmit && $user->status === 'submitted') {
+        return back()->with('error', 'Your documents have already been submitted. No further changes allowed.');
     }
 
     $validated = $request->validate([
@@ -296,7 +304,7 @@ private function fetchCgpaFromApi($schoolId)
         'fee_receipt' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
         'cv_file' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
         'medical_report' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        'passport_photo' => 'nullable|image|mimes:jpg,jpeg|max:2048',
+        'passport_photo' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
     ]);
 
     try {
@@ -310,11 +318,13 @@ private function fetchCgpaFromApi($schoolId)
             'passport_photo' => 'passport_photo'
         ];
 
+        $uploadedCount = 0;
+        
         foreach ($documentTypes as $field => $type) {
             if ($request->hasFile($field)) {
                 $path = $request->file($field)->store(
                     "documents/{$user->id}",
-                    'local'
+                    'public'  // Changed from 'local' to 'public' for accessibility
                 );
 
                 documents::updateOrCreate(
@@ -327,42 +337,63 @@ private function fetchCgpaFromApi($schoolId)
                         'verified' => false,
                     ]
                 );
+                $uploadedCount++;
             }
         }
 
+        // Handle final submission
         if ($isSubmit) {
-            $existingTypes = documents::where('nominee_id', $user->id)->pluck('type')->all();
+            // Get existing document types
+            $existingTypes = documents::where('nominee_id', $user->id)->pluck('type')->toArray();
             $requiredTypes = array_values($documentTypes);
             $missing = array_values(array_diff($requiredTypes, $existingTypes));
 
             if (!empty($missing)) {
                 DB::rollBack();
-                return back()->with('error', 'Please upload all required documents before final submission.');
+                $missingLabels = array_map(function($type) {
+                    return str_replace('_', ' ', ucfirst($type));
+                }, $missing);
+                return back()->with('error', 'Please upload all required documents before final submission. Missing: ' . implode(', ', $missingLabels));
             }
 
+            // Update nominee status to submitted
             $user->update([
                 'status' => 'submitted',
+                'documents_submitted_at' => now(),  // Add this to your migration
                 'medical_clearance' => true,
                 'fee_paid' => true,
                 'verified' => false,
             ]);
-        } else {
-            $user->update([
-                'status' => 'saved',
-                'verified' => false,
-            ]);
+            
+            DB::commit();
+            
+            return redirect('nomination-landing-page')  // Fixed spelling: 'normination' -> 'nomination'
+                ->with('success', 'Documents submitted successfully! Your nomination is now complete.');
+        } 
+        
+        // Handle draft save
+        else {
+            // Only update status if it's not already submitted
+            if ($user->status !== 'submitted') {
+                $user->update([
+                    'status' => 'draft',  // Changed from 'saved' to 'draft' for consistency
+                    'verified' => false,
+                ]);
+            }
+            
+            DB::commit();
+            
+            $message = $uploadedCount > 0 
+                ? "Documents saved successfully. ($uploadedCount file(s) uploaded)"
+                : "No new files uploaded. Draft saved.";
+            
+            return redirect('/normination-landing-page')->with('success', $message);
         }
-
-        DB::commit();
-
-        if ($isSubmit) {
-            return redirect('normination-landing-page')
-                ->with('success', 'Documents submitted successfully!');
-        }
-
-        return back()->with('success', 'Documents saved. You can continue later.');
+        
     } catch (\Exception $e) {
         DB::rollBack();
+        \Log::error('Document upload error: ' . $e->getMessage());
+        \Log::error($e->getTraceAsString());
         return back()->with('error', 'Error submitting documents: ' . $e->getMessage());
     }
 }
@@ -390,96 +421,109 @@ private function fetchCgpaFromApi($schoolId)
     }
 
     public function save(Request $request)
-    {
-        $action = $request->input('action', 'submit');
-        $isSubmit = $action === 'submit';
+{
+    $action = $request->input('action', 'save');
+    $isSubmit = $action === 'submit';  // 'submit' = final submission
+    $isDraft = $action === 'save';      // 'save' = save as draft
 
-        $ticketUser = Auth::guard('ticket')->user();
-        if (!$ticketUser) {
-            return redirect('normination-landing-page')->with('error', 'Please log in again to continue.');
+    $ticketUser = Auth::guard('ticket')->user();
+    if (!$ticketUser) {
+        return redirect('normination-landing-page')->with('error', 'Please log in again to continue.');
+    }
+
+    $rules = $this->getNominationValidationRules($isSubmit);
+    $validated = $request->validate($rules);
+
+    $ticketRegNumber = strtoupper(trim((string) $ticketUser->school_id));
+    $submittedRegNumber = strtoupper(trim((string) ($validated['reg_number'] ?? '')));
+
+    if ($submittedRegNumber !== '' && $submittedRegNumber !== $ticketRegNumber) {
+        return back()->withErrors(['reg_number' => 'The registration number must match your voucher account.'])->withInput();
+    }
+
+    $regNumber = $submittedRegNumber !== '' ? $submittedRegNumber : $ticketRegNumber;
+    $nominee = Nominee::where('reg_number', $regNumber)->first();
+
+    // Check if already submitted/approved/rejected
+    if ($nominee && in_array($nominee->status, ['submitted', 'approved', 'rejected'], true)) {
+        return redirect('normination-landing-page')->with('error', 'You have already submitted this nomination and it can no longer be edited.');
+    }
+
+    // Validation for running mate on final submit only
+    if ($isSubmit && $this->requiresRunningMate($validated['position'] ?? null) && empty($validated['running_mates_full_name'])) {
+        return back()->withErrors(['running_mates_full_name' => 'Running mate is required for this position.'])->withInput();
+    }
+
+    DB::beginTransaction();
+
+    try {
+        $nomineePayload = $this->buildNomineePayload($validated, $regNumber, $nominee, $isSubmit);
+        
+        // ✅ Set status based on button clicked
+        if ($isSubmit) {
+            $nomineePayload['status'] = 'submitted';  // Final submission
+            $nomineePayload['submitted_at'] = now();
+        } else {
+            $nomineePayload['status'] = 'draft';      // Save as draft
         }
 
-        $rules = $this->getNominationValidationRules($isSubmit);
-        $validated = $request->validate($rules);
-
-        $ticketRegNumber = strtoupper(trim((string) $ticketUser->school_id));
-        $submittedRegNumber = strtoupper(trim((string) ($validated['reg_number'] ?? '')));
-
-        if ($submittedRegNumber !== '' && $submittedRegNumber !== $ticketRegNumber) {
-            return back()->withErrors(['reg_number' => 'The registration number must match your voucher account.'])->withInput();
+        if ($nominee) {
+            $nominee->update($nomineePayload);
+        } else {
+            $nominee = Nominee::create($nomineePayload);
         }
 
-        $regNumber = $submittedRegNumber !== '' ? $submittedRegNumber : $ticketRegNumber;
-        $nominee = Nominee::where('reg_number', $regNumber)->first();
+        $this->upsertRunningMate($nominee, $validated);
+        $supporters = $this->upsertSupporters($nominee, $validated);
 
-        if ($nominee && in_array($nominee->status, ['submitted', 'approved', 'rejected'], true)) {
-            return redirect('normination-landing-page')->with('error', 'You have already submitted this nomination and it can no longer be edited.');
-        }
+        // Send emails ONLY on final submission
+        if ($isSubmit) {
+            foreach ($supporters as $supporter) {
+                if (!$supporter->email) {
+                    continue;
+                }
 
-        if ($isSubmit && $this->requiresRunningMate($validated['position'] ?? null) && empty($validated['running_mates_full_name'])) {
-            return back()->withErrors(['running_mates_full_name' => 'Running mate is required for this position.'])->withInput();
-        }
+                try {
+                    $confirmationUrl = url('/guarantor/confirm/' . $supporter->confirmation_token);
+                    $declineUrl = url('/guarantor/decline/' . $supporter->confirmation_token);
 
-        DB::beginTransaction();
+                    $emailBody = "
+                        Dear {$supporter->name},<br><br>
+                        You have been listed as a guarantor for nominee <b>{$nominee->full_name}</b> (Reg No: {$nominee->reg_number}) for the position of <b>{$nominee->position}</b>.<br>
+                        Please click the link below to review and confirm or decline your approval:<br><br>
+                        <a href=\"{$confirmationUrl}\" style=\"padding:10px 20px;background:#28a745;color:#fff;text-decoration:none;border-radius:5px;\">Accept</a>
+                        &nbsp;&nbsp;
+                        <a href=\"{$declineUrl}\" style=\"padding:10px 20px;background:#dc3545;color:#fff;text-decoration:none;border-radius:5px;\">Decline</a>
+                        <br><br>
+                        If you did not expect this email, you can safely ignore it.
+                    ";
 
-        try {
-            $nomineePayload = $this->buildNomineePayload($validated, $regNumber, $nominee, $isSubmit);
-
-            if ($nominee) {
-                $nominee->update($nomineePayload);
-            } else {
-                $nominee = Nominee::create($nomineePayload);
-            }
-
-            $this->upsertRunningMate($nominee, $validated);
-            $supporters = $this->upsertSupporters($nominee, $validated);
-
-            if ($isSubmit) {
-                foreach ($supporters as $supporter) {
-                    if (!$supporter->email) {
-                        continue;
-                    }
-
-                    try {
-                        $confirmationUrl = url('/guarantor/confirm/' . $supporter->confirmation_token);
-                        $declineUrl = url('/guarantor/decline/' . $supporter->confirmation_token);
-
-                        $emailBody = "
-                            Dear {$supporter->name},<br><br>
-                            You have been listed as a guarantor for nominee <b>{$nominee->full_name}</b> (Reg No: {$nominee->reg_number}) for the position of <b>{$nominee->position}</b>.<br>
-                            Please click the link below to review and confirm or decline your approval:<br><br>
-                            <a href=\"{$confirmationUrl}\" style=\"padding:10px 20px;background:#28a745;color:#fff;text-decoration:none;border-radius:5px;\">Accept</a>
-                            &nbsp;&nbsp;
-                            <a href=\"{$declineUrl}\" style=\"padding:10px 20px;background:#dc3545;color:#fff;text-decoration:none;border-radius:5px;\">Decline</a>
-                            <br><br>
-                            If you did not expect this email, you can safely ignore it.
-                        ";
-
-                        Mail::send([], [], function ($message) use ($supporter, $emailBody) {
-                            $message->to($supporter->email)
-                                ->subject('Confirm Your Guarantor Approval')
-                                ->html($emailBody);
-                        });
-                    } catch (\Exception $mailEx) {
-                        Log::error('Failed to send guarantor confirmation email: ' . $mailEx->getMessage());
-                    }
+                    Mail::send([], [], function ($message) use ($supporter, $emailBody) {
+                        $message->to($supporter->email)
+                            ->subject('Confirm Your Guarantor Approval')
+                            ->html($emailBody);
+                    });
+                } catch (\Exception $mailEx) {
+                    Log::error('Failed to send guarantor confirmation email: ' . $mailEx->getMessage());
                 }
             }
-
-            DB::commit();
-
-            if ($isSubmit) {
-                return redirect('documents-uploads')->with('success', 'Nomination submitted. Continue with document upload.');
-            }
-
-            return back()->with('success', 'Draft saved successfully. You can continue later.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Nomination save error: ' . $e->getMessage());
-            Log::error($e->getTraceAsString());
-            return back()->with('error', 'An error occurred while saving your nomination.');
         }
+
+        DB::commit();
+
+        if ($isSubmit) {
+            return redirect('/normination-landing-page')->with('success', $message);
+        }
+
+        return redirect(/normination-landing-page)->with('success', 'Draft saved successfully. You can continue later.');
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Nomination save error: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+        return back()->with('error', 'An error occurred while saving your nomination.');
     }
+}
 
     private function getNominationValidationRules(bool $isSubmit): array
     {
