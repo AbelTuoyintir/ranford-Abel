@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Voting Card Design</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .overlay {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+    .letter-overlay {
+      background-color: rgba(0, 0, 0, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center h-screen font-sans">
+
+  <!-- Voting Card with Image -->
+  <div class="max-w-md w-full bg-white rounded-lg shadow-lg overflow-hidden">
+    <div class="relative">
+      <img src="https://via.placeholder.com/400x200" alt="Hall Image" class="w-full h-48 object-cover">
+      <div class="absolute inset-0 overlay"></div>
+      <p class="absolute top-4 left-4 text-white text-lg font-bold">8 Halls</p>
+    </div>
+
+    <div class="p-6">
+      <h2 class="text-2xl font-semibold text-gray-800">Voting Summary</h2>
+      <div class="mt-4 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 1</span>
+          <span class="text-gray-900 font-bold">450 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 2</span>
+          <span class="text-gray-900 font-bold">378 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 3</span>
+          <span class="text-gray-900 font-bold">325 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 4</span>
+          <span class="text-gray-900 font-bold">412 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 5</span>
+          <span class="text-gray-900 font-bold">289 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 6</span>
+          <span class="text-gray-900 font-bold">198 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 7</span>
+          <span class="text-gray-900 font-bold">357 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 8</span>
+          <span class="text-gray-900 font-bold">192 votes</span>
+        </div>
+      </div>
+      <div class="relative mt-4">
+        <div class="absolute -top-4 right-0 bg-red-600 text-white rounded-full px-4 py-1 shadow-lg">
+          Total: 2,601 votes
+        </div>
+      </div>
+    </div>
+  </div>
+
+<div style="margin:50px"></div>
+
+
+  <!-- Voting Card with Letter "A" -->
+  <div class="max-w-md w-full bg-white rounded-lg shadow-lg overflow-hidden">
+    <div class="relative h-48 flex items-center justify-center bg-gray-300 text-white text-6xl font-bold letter-overlay">
+      <span>A</span>
+      <p class="absolute top-4 left-4 text-white text-lg font-bold">8 Halls</p>
+    </div>
+
+    <div class="p-6">
+      <h2 class="text-2xl font-semibold text-gray-800">Voting Summary</h2>
+      <div class="mt-4 space-y-3">
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 1</span>
+          <span class="text-gray-900 font-bold">450 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 2</span>
+          <span class="text-gray-900 font-bold">378 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 3</span>
+          <span class="text-gray-900 font-bold">325 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 4</span>
+          <span class="text-gray-900 font-bold">412 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 5</span>
+          <span class="text-gray-900 font-bold">289 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 6</span>
+          <span class="text-gray-900 font-bold">198 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 7</span>
+          <span class="text-gray-900 font-bold">357 votes</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-gray-600 font-medium">Hall 8</span>
+          <span class="text-gray-900 font-bold">192 votes</span>
+        </div>
+      </div>
+      <div class="relative mt-4">
+        <div class="absolute -top-4 right-0 bg-red-600 text-white rounded-full px-4 py-1 shadow-lg">
+          Total: 2,601 votes
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,30 @@
+charle wey for protect this app
+its easy for u to hack the app in the browser 
+so what u need to do is to protected all the public variable
+then we need to protect all the route with middlware
+
+
+1.create an env file and paste our code 
+2.run composer install 
+
+3.php artisan serve --- to start the server
+
+4.
+npm install --save laravel-echo pusher-js
+npm run build
+npm run dev --to start the node serve and twiwind
+
+
+5.php artisan schedule:work ---to start the schedule to check if a poll is ready or need to be completed
+
+6.php artisan queue:work --to dispatch emails so that it wont affect the performance of the app
+
+7.php artisan reverb:start --debug
+
+
+im using the osf route
+8.use the certificate in the project and move to xamp/conf and rename the localhost.pem to server.crt and 
+the key to serve .key
+
+now instead of using php artisan serve use apache to run project 
+make sure u project is in the htdocs 

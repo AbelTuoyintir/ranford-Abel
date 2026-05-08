@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <!-- Box gradient for 3D effect with UCC blue -->
+    <linearGradient id="boxGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#005B99"/>
+    </linearGradient>
+    
+    <!-- Paper gradient with subtle yellow accents -->
+    <linearGradient id="paperGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#F4F4F4"/>
+    </linearGradient>
+    
+    <!-- Shadow effect for depth -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="3" dy="3" stdDeviation="5" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Ballot Box -->
+  <g transform="translate(40, 40)" filter="url(#shadow)">
+    <!-- Main box body with UCC blue color and rounded corners -->
+    <rect x="0" y="30" width="120" height="100" 
+          fill="url(#boxGradient)" rx="12"/>
+    
+    <!-- Box top with brighter UCC blue accent -->
+    <path d="M0 30 L10 10 H130 L120 30 Z" 
+          fill="#005B99"/>
+    
+    <!-- Ballot slot with a bright yellow to match UCC's theme -->
+    <rect x="30" y="20" width="60" height="6" 
+          fill="#F9A800" rx="2"/>
+    
+    <!-- Ballot paper with a rotated effect -->
+    <g>
+      <rect x="45" y="0" width="30" height="45" 
+            fill="url(#paperGradient)" 
+            transform="rotate(-6, 60, 22)"/>
+      
+      <!-- Check mark on ballot using UCC blue for emphasis -->
+      <path d="M50 18 L60 28 L75 13" 
+            stroke="#003366" 
+            stroke-width="3.5" 
+            fill="none" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+            transform="rotate(-6, 60, 22)"/>
+    </g>
+  </g>
+</svg>
