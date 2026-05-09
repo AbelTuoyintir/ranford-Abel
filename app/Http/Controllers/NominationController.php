@@ -263,50 +263,54 @@ private function fetchCgpaFromApi($schoolId)
         return view('livewire.nominee-forms.nomination-print');
     }
 
-    public function Documents()
-    {
-        $userTicket = Auth::guard('ticket')->user();
-        if (!$userTicket) {
-            return redirect()->route('nomination.login')->with('error', 'Please log in to access this page.');
-        }
-        $user = Nominee::where('reg_number', $userTicket->school_id)->first();
+   public function Documents()
+{
+    $userTicket = Auth::guard('ticket')->user();
+    if (!$userTicket) {
+        return redirect()->route('nomination.login')->with('error', 'Please log in to access this page.');
+    }
+    
+    $user = Nominee::where('reg_number', $userTicket->school_id)->first();
 
-        if (!$user) {
-            return redirect('nomination-forms')->with('error', 'Please complete your nomination form first.');
-        }
-
-        if (in_array($user->status, ['submitted', 'approved', 'rejected'], true)) {
-            return redirect('normination-landing-page')->with('error', 'Your submission is locked and cannot be edited.');
-        }
-
-        $existingDocs = documents::where('nominee_id', $user->id)->get()->keyBy('type');
-
-        return view('livewire.nominee-forms.documents-uploads', [
-            'user' => $user,
-            'existingDocs' => $existingDocs,
-        ]);
+    if (!$user) {
+        return redirect('nomination-forms')->with('error', 'Please complete your nomination form first.');
     }
 
-    public function storeDocuments(Request $request, Nominee $user)
+    if (in_array($user->status, ['submitted', 'approved', 'rejected'], true)) {
+        return redirect('nomination-landing-page')->with('error', 'Your submission is locked and cannot be edited.');
+    }
+
+    // Get existing documents - this will be passed to the view
+    $existingDocs = documents::where('nominee_id', $user->id)->get()->keyBy('type');
+
+    return view('livewire.nominee-forms.documents-uploads', [
+        'user' => $user,
+        'existingDocs' => $existingDocs,  // Pass to view for display
+    ]);
+}
+
+public function storeDocuments(Request $request, Nominee $user)
 {
-    $action = $request->input('action', 'save');  // Changed default to 'save'
-    $isSubmit = $action === 'submit';
-    $isDraft = $action === 'save';
+    // 🔍 First, log what we received (remove after testing)
+    \Log::info('storeDocuments called with action: ' . $request->input('action'));
+    \Log::info('All request data: ' . json_encode($request->except('_token')));
     
+    $action = $request->input('action', 'save');
+    $isSubmit = ($action === 'submit');
+    $isDraft = ($action === 'save');
+    
+    // 🔍 Debug output (remove after testing)
+    \Log::info("Action: $action, isSubmit: " . ($isSubmit ? 'true' : 'false') . ", isDraft: " . ($isDraft ? 'true' : 'false'));
+
     $ticketUser = Auth::guard('ticket')->user();
 
     if (!$ticketUser || strtoupper($ticketUser->school_id) !== strtoupper($user->reg_number)) {
         return back()->with('error', 'Unauthorized document action.');
     }
 
-    // Check if already submitted - prevent further edits
-    if (in_array($user->status, ['approved', 'rejected'], true)) {
-        return back()->with('error', 'Your submission is approved/rejected and can no longer be edited.');
-    }
-
-    // For draft saves, allow even if status is 'submitted' but not approved/rejected
-    if ($isSubmit && $user->status === 'submitted') {
-        return back()->with('error', 'Your documents have already been submitted. No further changes allowed.');
+    // Prevent edits if already submitted/approved/rejected
+    if (in_array($user->status, ['submitted', 'approved', 'rejected'], true)) {
+        return back()->with('error', 'Your submission is locked and can no longer be edited.');
     }
 
     $validated = $request->validate([
@@ -329,12 +333,23 @@ private function fetchCgpaFromApi($schoolId)
         ];
 
         $uploadedCount = 0;
-        
+        $updatedDocuments = [];
+
         foreach ($documentTypes as $field => $type) {
             if ($request->hasFile($field)) {
+                // Delete old file if exists
+                $oldDoc = documents::where('nominee_id', $user->id)
+                    ->where('type', $type)
+                    ->first();
+                
+                if ($oldDoc && $oldDoc->path) {
+                    \Storage::disk('public')->delete($oldDoc->path);
+                }
+                
+                // Store new file
                 $path = $request->file($field)->store(
                     "documents/{$user->id}",
-                    'public'  // Changed from 'local' to 'public' for accessibility
+                    'public'
                 );
 
                 documents::updateOrCreate(
@@ -348,12 +363,19 @@ private function fetchCgpaFromApi($schoolId)
                     ]
                 );
                 $uploadedCount++;
+                $updatedDocuments[] = $type;
             }
         }
 
-        // Handle final submission
-        if ($isSubmit) {
-            // Get existing document types
+        // Get existing documents count
+        $existingDocsCount = documents::where('nominee_id', $user->id)->count();
+        $requiredCount = count($documentTypes);
+
+        // ✅ CRITICAL FIX: Handle SUBMIT action FIRST
+        if ($isSubmit === true) {
+            \Log::info('🔴 PROCESSING SUBMIT - Updating status to submitted');
+            
+            // Check if ALL required documents exist
             $existingTypes = documents::where('nominee_id', $user->id)->pluck('type')->toArray();
             $requiredTypes = array_values($documentTypes);
             $missing = array_values(array_diff($requiredTypes, $existingTypes));
@@ -366,40 +388,62 @@ private function fetchCgpaFromApi($schoolId)
                 return back()->with('error', 'Please upload all required documents before final submission. Missing: ' . implode(', ', $missingLabels));
             }
 
-            // Update nominee status to submitted
+            // ✅ UPDATE TO SUBMITTED STATUS
             $user->update([
                 'status' => 'submitted',
-                'documents_submitted_at' => now(),  // Add this to your migration
+                'submitted_at' => now(),
                 'medical_clearance' => true,
                 'fee_paid' => true,
                 'verified' => false,
             ]);
             
+            \Log::info('✅ Status updated to: ' . $user->fresh()->status);
+
             DB::commit();
-            
-            return redirect('nomination-landing-page')  // Fixed spelling: 'normination' -> 'nomination'
-                ->with('success', 'Documents submitted successfully! Your nomination is now complete.');
+
+            return redirect('/normination-landing-page')
+                ->with('success', '✅ Documents submitted successfully! Your nomination is now complete. Please wait for admin approval.');
         } 
         
-        // Handle draft save
-        else {
-            // Only update status if it's not already submitted
+        // ✅ Handle DRAFT action (Save & Continue)
+        elseif ($isDraft === true) {
+            \Log::info('💾 PROCESSING DRAFT - Updating status to saved');
+            
+            // Only update status if user hasn't submitted yet
             if ($user->status !== 'submitted') {
                 $user->update([
-                    'status' => 'saved',  // Changed from 'saved' to 'draft' for consistency
+                    'status' => 'saved',
                     'verified' => false,
                 ]);
             }
-            
+
             DB::commit();
-            
-            $message = $uploadedCount > 0 
-                ? "Documents saved successfully. ($uploadedCount file(s) uploaded)"
-                : "No new files uploaded. Draft saved.";
-            
+
+            // Build appropriate success message
+            if ($uploadedCount > 0) {
+                $updatedList = implode(', ', array_map(function($type) {
+                    return str_replace('_', ' ', ucfirst($type));
+                }, $updatedDocuments));
+                
+                $message = "✅ Documents saved successfully! Updated: $updatedList. ($uploadedCount file(s) uploaded/replaced)";
+            } else {
+                if ($existingDocsCount > 0) {
+                    $message = "📁 Draft saved. You have $existingDocsCount of $requiredCount documents uploaded. Continue adding more documents.";
+                } else {
+                    $message = "📝 No new files selected. Please choose files to upload before saving.";
+                }
+            }
+
             return redirect('/normination-landing-page')->with('success', $message);
         }
         
+        // ✅ Fallback for unknown action
+        else {
+            \Log::warning('⚠️ Unknown action received: ' . $action);
+            DB::rollBack();
+            return back()->with('error', 'Invalid action. Please use Save or Submit button.');
+        }
+
     } catch (\Exception $e) {
         DB::rollBack();
         \Log::error('Document upload error: ' . $e->getMessage());
@@ -472,6 +516,7 @@ private function fetchCgpaFromApi($schoolId)
         // ✅ Set status based on button clicked
         if ($isSubmit) {
             $nomineePayload['status'] = 'saved';  // Final submission
+            $nomineePayload['role'] = 'nominee'; // Ensure role is set to applicant on final submission
             $nomineePayload['submitted_at'] = now();
         } else {
             $nomineePayload['status'] = 'draft';      // Save as draft
@@ -896,29 +941,29 @@ private function fetchCgpaFromApi($schoolId)
                                 'confirmed' => false,
                             ]);
 
-                            // try {
-                            //     $confirmationUrl = url('/guarantor/confirm/' . $supporter->confirmation_token);
-                            //     $declineUrl = url('/guarantor/decline/' . $supporter->confirmation_token);
+                            try {
+                                $confirmationUrl = url('/guarantor/confirm/' . $supporter->confirmation_token);
+                                $declineUrl = url('/guarantor/decline/' . $supporter->confirmation_token);
 
-                            //     $emailBody = "
-                            //         Dear {$supporter->name},<br><br>
-                            //         You have been listed as a guarantor for nominee <b>{$nominee->full_name}</b> (Reg No: {$nominee->reg_number}) for the position of <b>{$nominee->position}</b>.<br>
-                            //         Please click the link below to review and confirm or decline your approval:<br><br>
-                            //         <a href=\"{$confirmationUrl}\" style=\"padding:10px 20px;background:#28a745;color:#fff;text-decoration:none;border-radius:5px;\">Accept</a>
-                            //         &nbsp;&nbsp;
-                            //         <a href=\"{$declineUrl}\" style=\"padding:10px 20px;background:#dc3545;color:#fff;text-decoration:none;border-radius:5px;\">Decline</a>
-                            //         <br><br>
-                            //         If you did not expect this email, you can safely ignore it.
-                            //     ";
+                                $emailBody = "
+                                    Dear {$supporter->name},<br><br>
+                                    You have been listed as a guarantor for nominee <b>{$nominee->full_name}</b> (Reg No: {$nominee->reg_number}) for the position of <b>{$nominee->position}</b>.<br>
+                                    Please click the link below to review and confirm or decline your approval:<br><br>
+                                    <a href=\"{$confirmationUrl}\" style=\"padding:10px 20px;background:#28a745;color:#fff;text-decoration:none;border-radius:5px;\">Accept</a>
+                                    &nbsp;&nbsp;
+                                    <a href=\"{$declineUrl}\" style=\"padding:10px 20px;background:#dc3545;color:#fff;text-decoration:none;border-radius:5px;\">Decline</a>
+                                    <br><br>
+                                    If you did not expect this email, you can safely ignore it.
+                                ";
 
-                            //     Mail::send([], [], function ($message) use ($supporter, $emailBody) {
-                            //         $message->to($supporter->email)
-                            //             ->subject('Confirm Your Guarantor Approval')
-                            //             ->html($emailBody);
-                            //     });
-                            // } catch (\Exception $mailEx) {
-                            //     Log::error('Failed to send guarantor confirmation email: ' . $mailEx->getMessage());
-                            // }
+                                Mail::send([], [], function ($message) use ($supporter, $emailBody) {
+                                    $message->to($supporter->email)
+                                        ->subject('Confirm Your Guarantor Approval')
+                                        ->html($emailBody);
+                                });
+                            } catch (\Exception $mailEx) {
+                                Log::error('Failed to send guarantor confirmation email: ' . $mailEx->getMessage());
+                            }
                         }
                     }
 

@@ -114,6 +114,10 @@
             from { transform: translateX(-100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
         @keyframes pulse-gold {
             0%, 100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
             50% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
@@ -746,7 +750,6 @@
             list-style: none;
             padding: 0;
             margin: 0;
-            space-y: 10px;
         }
 
         .requirement-list li {
@@ -879,7 +882,7 @@
     @endif
 
     <div class="page-wrapper">
-        <!-- Header Section with Hero Illustration -->
+        <!-- Header Section -->
         <div class="header-section">
             <div class="hero-illustration">
                 <div class="hero-icon"><i class="fas fa-check-circle"></i></div>
@@ -899,14 +902,14 @@
             </div>
         </div>
 
-        <!-- User Profile Card with visual flair -->
+        <!-- User Profile Card -->
         <div class="profile-card">
             <div class="profile-header">
                 <div class="profile-avatar">
                     <i class="fas fa-user-graduate"></i>
                 </div>
                 <div class="profile-info">
-                    <p><i class="fas fa-star text-yellow-400"></i> Welcome back, Aspirant</p>
+                    <p><i class="fas fa-star" style="color: var(--ucc-gold);"></i> Welcome back, Aspirant</p>
                     <h2>{{ $user->full_name ?? 'Candidate' }}</h2>
                     <p><i class="fas fa-id-card"></i> ID: {{ $user->reg_number }}</p>
                 </div>
@@ -928,7 +931,7 @@
         <!-- Main Form -->
         <form method="POST" action="{{ route('nomination.documents.store', $user) }}" enctype="multipart/form-data" id="nominationForm">
             @csrf
-
+            
             <!-- Section 1: Academic Documents -->
             <div class="form-section">
                 <div class="section-header">
@@ -1139,12 +1142,13 @@
                 </div>
             </div>
 
-            <!-- Action Buttons -->
+            <!-- Action Buttons - FIXED VERSION -->
             <div class="button-section">
-                <button type="submit" name="action" value="save" id="saveBtn" class="btn-action btn-save">
+                <input type="hidden" name="action" id="actionInput" value="">
+                <button type="button" id="saveBtn" class="btn-action btn-save">
                     <i class="fas fa-save"></i> Save Draft & Continue
                 </button>
-                <button type="submit" name="action" value="submit" id="submitBtn" class="btn-action btn-submit">
+                <button type="button" id="submitBtn" class="btn-action btn-submit">
                     <i class="fas fa-paper-plane"></i> Submit Final Nomination
                 </button>
             </div>
@@ -1155,7 +1159,7 @@
             </div>
         </form>
 
-        <!-- Requirements & Help Section -->
+        <!-- Requirements Section -->
         <div class="requirements-section">
             <div class="requirement-card">
                 <div class="requirement-header">
@@ -1199,113 +1203,125 @@
     </div>
 
     <script>
-        // (Same JavaScript as before - keep it)
-        (function() {
-            const form = document.getElementById('nominationForm');
-            const saveBtn = document.getElementById('saveBtn');
-            const submitBtn = document.getElementById('submitBtn');
-            const progressBar = document.getElementById('progress-bar');
-            const percentSpan = document.getElementById('completion-percent');
+    (function() {
+        const form = document.getElementById('nominationForm');
+        const saveBtn = document.getElementById('saveBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const actionInput = document.getElementById('actionInput');
+        const progressBar = document.getElementById('progress-bar');
+        const percentSpan = document.getElementById('completion-percent');
+        
+        const docKeys = ['cgpa', 'fee_receipt', 'cv', 'medical_report', 'passport_photo'];
+        
+        const existingStatus = {
+            cgpa: @json($existingDocs->has('cgpa')),
+            fee_receipt: @json($existingDocs->has('fee_receipt')),
+            cv: @json($existingDocs->has('cv')),
+            medical_report: @json($existingDocs->has('medical_report')),
+            passport_photo: @json($existingDocs->has('passport_photo'))
+        };
+        
+        let selectedFiles = {
+            cgpa: false,
+            fee_receipt: false,
+            cv: false,
+            medical_report: false,
+            passport_photo: false
+        };
+        
+        function updateCompletion() {
+            let completedCount = 0;
+            for (let key of docKeys) {
+                if (existingStatus[key] || selectedFiles[key]) completedCount++;
+            }
+            const percent = Math.round((completedCount / docKeys.length) * 100);
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (percentSpan) percentSpan.innerText = percent + '%';
+        }
+        
+        const fileInputs = document.querySelectorAll('.file-input-custom');
+        
+        fileInputs.forEach(input => {
+            const docType = input.getAttribute('data-doc-type');
+            const docCard = input.closest('.doc-card');
             
-            const docKeys = ['cgpa', 'fee_receipt', 'cv', 'medical_report', 'passport_photo'];
-            
-            const existingStatus = {
-                cgpa: @json($existingDocs->has('cgpa')),
-                fee_receipt: @json($existingDocs->has('fee_receipt')),
-                cv: @json($existingDocs->has('cv')),
-                medical_report: @json($existingDocs->has('medical_report')),
-                passport_photo: @json($existingDocs->has('passport_photo'))
-            };
-            
-            let selectedFiles = {
-                cgpa: false,
-                fee_receipt: false,
-                cv: false,
-                medical_report: false,
-                passport_photo: false
-            };
-            
-            function updateCompletion() {
-                let completedCount = 0;
-                for (let key of docKeys) {
-                    if (existingStatus[key] || selectedFiles[key]) completedCount++;
+            input.addEventListener('change', (e) => {
+                selectedFiles[docType] = (input.files && input.files.length > 0);
+                if (selectedFiles[docType]) {
+                    docCard.classList.add('uploaded');
+                } else {
+                    docCard.classList.remove('uploaded');
                 }
-                const percent = Math.round((completedCount / docKeys.length) * 100);
-                progressBar.style.width = percent + '%';
-                percentSpan.innerText = percent + '%';
+                updateCompletion();
+                
+                const file = input.files[0];
+                if (file) {
+                    let maxSize = 5 * 1024 * 1024;
+                    if (docType === 'passport_photo') maxSize = 2 * 1024 * 1024;
+                    
+                    if (file.size > maxSize) {
+                        alert(`⚠️ File too large! Max size: ${maxSize / (1024*1024)}MB`);
+                        input.value = '';
+                        selectedFiles[docType] = false;
+                        docCard.classList.remove('uploaded');
+                        updateCompletion();
+                    } else if (docType === 'passport_photo' && !file.type.match('image/jpeg')) {
+                        alert('❌ Campaign photo must be JPEG format (.jpg or .jpeg)');
+                        input.value = '';
+                        selectedFiles[docType] = false;
+                        docCard.classList.remove('uploaded');
+                        updateCompletion();
+                    }
+                }
+            });
+        });
+        
+        updateCompletion();
+        
+        // ✅ FIX: Save button (type="button" so we control submission)
+        saveBtn?.addEventListener('click', function() {
+            // Set the action value
+            actionInput.value = 'save';
+            
+            // Disable button and show loading
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            // Submit the form
+            form.submit();
+        });
+        
+        // ✅ FIX: Submit button with validation
+        submitBtn?.addEventListener('click', function() {
+            // Check for missing documents
+            let missingDocs = [];
+            for (let key of docKeys) {
+                if (!existingStatus[key] && !selectedFiles[key]) {
+                    missingDocs.push(key.replace(/_/g, ' ').toUpperCase());
+                }
             }
             
-            const fileInputs = document.querySelectorAll('.file-input-custom');
+            if (missingDocs.length > 0) {
+                alert(`⚠️ INCOMPLETE! Missing:\n\n${missingDocs.join(', ')}\n\nPlease upload all documents.`);
+                return false;
+            }
             
-            fileInputs.forEach(input => {
-                const docType = input.getAttribute('data-doc-type');
-                const docCard = input.closest('.doc-card');
-                
-                input.addEventListener('change', (e) => {
-                    selectedFiles[docType] = (input.files && input.files.length > 0);
-                    if (selectedFiles[docType]) {
-                        docCard.classList.add('uploaded');
-                    } else {
-                        docCard.classList.remove('uploaded');
-                    }
-                    updateCompletion();
-                    
-                    const file = input.files[0];
-                    if (file) {
-                        let maxSize = 5 * 1024 * 1024;
-                        if (docType === 'passport_photo') maxSize = 2 * 1024 * 1024;
-                        
-                        if (file.size > maxSize) {
-                            alert(`⚠️ File too large! Max size: ${maxSize / (1024*1024)}MB`);
-                            input.value = '';
-                            selectedFiles[docType] = false;
-                            docCard.classList.remove('uploaded');
-                            updateCompletion();
-                        } else if (docType === 'passport_photo' && !file.type.match('image/jpeg')) {
-                            alert('❌ Campaign photo must be JPEG format (.jpg or .jpeg)');
-                            input.value = '';
-                            selectedFiles[docType] = false;
-                            docCard.classList.remove('uploaded');
-                            updateCompletion();
-                        }
-                    }
-                });
-            });
+            const confirmMsg = window.confirm("🔒 FINAL SUBMISSION:\n\nOnce submitted, you CANNOT edit or replace documents. Your nomination will be locked for review.\n\nAre you absolutely sure all files are CORRECT?");
             
-            updateCompletion();
-            
-            submitBtn?.addEventListener('click', (e) => {
-                e.preventDefault();
+            if (confirmMsg) {
+                // Set the action value to 'submit'
+                actionInput.value = 'submit';
                 
-                let missingDocs = [];
-                for (let key of docKeys) {
-                    if (!existingStatus[key] && !selectedFiles[key]) {
-                        missingDocs.push(key.replace(/_/g, ' ').toUpperCase());
-                    }
-                }
+                // Disable button and show loading
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
                 
-                if (missingDocs.length > 0) {
-                    alert(`⚠️ INCOMPLETE! Missing:\n\n${missingDocs.join(', ')}\n\nPlease upload all documents.`);
-                    return false;
-                }
-                
-                const confirm = window.confirm("🔒 FINAL SUBMISSION:\n\nOnce submitted, you CANNOT edit or replace documents. Your nomination will be locked for review.\n\nAre you absolutely sure all files are CORRECT?");
-                
-                if (confirm) {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-                    form.submit();
-                }
-            });
-            
-            saveBtn?.addEventListener('click', (e) => {
-                e.preventDefault();
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                // Submit the form
                 form.submit();
-            });
-        })();
-    </script>
+            }
+        });
+    })();
+</script>
 </body>
 </html>
 @else

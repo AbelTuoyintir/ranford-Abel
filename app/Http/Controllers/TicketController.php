@@ -254,8 +254,10 @@ public function NorminationLogin(Request $request)
             );
         }
 
-        if ($user->status === 'saved') {
+        if ($user->status === 'saved' && $user->role === 'aspirant') {
             return redirect('documents-uploads')->with('success', 'Continue by uploading your supporting documents.');
+        }else{  
+            return redirect('normination-landing-page')->with('error', 'Your nomination is already in progress. Please wait for admin approval.');
         }
 
         return redirect('nomination-forms')->with('success', 'Continue your saved draft.');
