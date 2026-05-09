@@ -61,26 +61,7 @@
             </div>
         </div>
 
-        <!-- Search & Filter Bar -->
-        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div class="flex flex-wrap gap-4">
-                <div class="flex-1 min-w-[200px]">
-                    <input type="text" id="searchInput" placeholder="🔍 Search by Voucher, Password, or School ID..." 
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                </div>
-                <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                    <option value="all">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="expired">Expired</option>
-                </select>
-                <button onclick="window.print()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
-                    🖨️ Print
-                </button>
-                <button class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                    📥 Export CSV
-                </button>
-            </div>
-        </div>
+       
 
         <!-- Tickets Table -->
         <div class="bg-white rounded-lg shadow-md overflow-hidden">
@@ -90,7 +71,6 @@
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Voucher Code</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Password</th>
                             <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">School ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Expires At</th>
                             <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
@@ -105,18 +85,6 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $ticket->id }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="font-mono text-sm font-semibold text-blue-700">{{ $ticket->Voucher }}</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center gap-2">
-                                    <span class="ticket-password text-sm font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded">
-                                        {{ $ticket->readable_password ?? 'Unavailable' }}
-                                    </span>
-                                    <button onclick="copyToClipboard({{ json_encode($ticket->readable_password ?? '') }})" 
-                                            class="text-gray-400 hover:text-blue-600 transition"
-                                            title="Copy password">
-                                        📋
-                                    </button>
-                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ $ticket->school_id }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">

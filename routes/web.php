@@ -4,42 +4,13 @@
 // use App\Livewire\AdminLogin;
 // use App\Models\ManageMember;
 // use App\View\Components\AppLayout;
-use App\Mail\TestMail;
-use App\Models\Nominee;
-use App\Models\RouteMap;
-// use App\Http\Controllers\PollSettings;
-use App\Models\documents;
-// use App\Http\Controllers\ApiController;
-// use App\Http\Controllers\ManageMembers;
-// use App\Http\Livewire\Admin\StrongRoom;
 use Illuminate\Support\Str;
-use App\Events\LogUserToStrongRoom;
-use App\Events\UserActivityUpdated;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\VerifyVoters;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Storage;
-use App\Http\Controllers\PollController;
-use App\Http\Controllers\TestController;
-use Illuminate\Support\Facades\Schedule;
-use App\Http\Controllers\EmailController;
-use App\Http\Controllers\LoginController;
-use App\Http\Controllers\TicketController;
-use App\Http\Controllers\VotersController;
-use App\Http\Controllers\SettingController;
-use App\Http\Controllers\databaseController;
-use App\Http\Controllers\CandidateController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\IpAddressController;
-use App\Http\Controllers\GoogleAuthController;
-use App\Http\Controllers\NominationController;
-use App\Http\Controllers\PortfoliosController;
-use App\Http\Controllers\StrongroomController;
-use App\Http\Controllers\PollSystemsController;
-use App\Http\Controllers\ManageMemberController;
+use Illuminate\Support\Facades\{Artisan, Log, Mail, Route, Schedule, Storage};
 
+use App\Mail\TestMail;
+use App\Models\{Nominee, RouteMap, documents};
+use App\Events\{LogUserToStrongRoom, UserActivityUpdated};
+use App\Http\Controllers\{CandidateController, DashboardController, EmailController, GoogleAuthController, IpAddressController, LoginController, ManageMemberController, NominationController, PollController, PollSystemsController, PortfoliosController, SettingController, StrongroomController, TestController, TicketController, UpdateProfileController, VerifyVoters, VotersController, VotersRegisterController, databaseController, databaseFetchController};
 
 Route::get('/clear-cache', function () {
     Artisan::call('optimize:clear');     // clears all caches (routes, config, views)
@@ -78,9 +49,7 @@ Route::get('/{uuid}', function ($uuid) {
 })->where('uuid', '[0-9a-fA-F-]+'); // Ensure only valid UUIDs match
 
 
-use App\Http\Controllers\databaseFetchController;
-use App\Http\Controllers\UpdateProfileController;
-use App\Http\Controllers\VotersRegisterController;
+
 
 Route::get('/send-mail', function () {
     // $details = [
@@ -206,66 +175,38 @@ Route::middleware(['restrict.ip'])->group(function () {
         //     ]);
         // })->name('secure.document');
 
-        Route::get('/secure-document/{document}', function (documents $document) {
-        $relativePath = $document->path;
-        $absolutePath1 = storage_path('app/' . $relativePath);
-        $absolutePath2 = storage_path('app/private/' . $relativePath);
+     
 
-        Log::debug('File access attempt', [
-            'document_id' => $document->id,
-            'db_path' => $relativePath,
-            'attempted_path1' => $absolutePath1,
-            'attempted_path2' => $absolutePath2,
-            'file_exists1' => file_exists($absolutePath1),
-            'file_exists2' => file_exists($absolutePath2),
-            'storage_exists' => Storage::exists($relativePath),
-        ]);
+Route::get('/secure-document/{document}', function (documents $document) {
+    // Permission check (admin or owner)
+    if (auth()->user()->role !== 'admin' && auth()->user()->cannot('view', $document)) {
+        abort(403);
+    }
 
-        // Determine the correct file path
-        $foundPath = null;
-        foreach ([$absolutePath1, $absolutePath2] as $path) {
-            if (file_exists($path)) {
-                $foundPath = $path;
-                break;
-            }
-        }
+    $disk = Storage::disk('public');
+    $path = $document->path;
 
-        if (!$foundPath) {
-            abort(404, "File not found. Checked locations:\n- {$absolutePath1}\n- {$absolutePath2}");
-        }
+    if (!$disk->exists($path)) {
+        abort(404);
+    }
 
-        // Ensure the filename has an extension
-        $baseName = pathinfo($document->original_name, PATHINFO_FILENAME);
-        if (empty($baseName)) {
-            $baseName = 'document_' . $document->id;
-        }
-        $fileExtension = pathinfo($foundPath, PATHINFO_EXTENSION);
-        $filename = $baseName . '.' . $document->original_name;
-        // $finalFilename = $baseName . '.' . $fileExtension;
+    $file = $disk->get($path);
+    $mime = $disk->mimeType($path); // no column needed, reads from file
+    $filename = basename($path);
 
-        if (!Str::endsWith(strtolower($filename), '.' . strtolower($fileExtension))) {
-            $filename .= '.' . $fileExtension;
-        }
+    // For images, show inline; otherwise force download
+    if (str_starts_with($mime, 'image/')) {
+        return response($file, 200)->header('Content-Type', $mime);
+    }
 
-        // Admin bypass
-        if (auth()->user()->role === 'admin') {
-            return response()->download($foundPath, $filename, [
-                'Content-Type' => $document->mime_type,
-            ]);
-        }
-
-        // Normal user flow
-        if (auth()->user()->cannot('view', $document)) {
-            abort(403);
-        }
-
-        return response()->download($foundPath, $filename, [
-            'Content-Type' => $document->mime_type,
-        ]);
-    })->name('secure.document');
+    return response($file, 200)
+        ->header('Content-Type', $mime)
+        ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+})->name('secure.document');
         
         Route::post('/nominees/{nominee}/promote', [NominationController::class, 'promote'])->name('nominees.promote');
         Route::delete('/nominees/{nominee}', [NominationController::class, 'disqualify'])->name('nominees.disqualify'); 
+        Route::post('/nominees/{nominee}', [NominationController::class, 'requalify'])->name('nominees.requalify'); 
         Route::get('/nominees/{nominee}', [NominationController::class, 'show'])->name('nominees.show');
         Route::patch('/{document}/verify', [NominationController::class, 'verify'])->name('documents.verify');
         Route::delete('/{document}/reject', [NominationController::class, 'reject'])->name('documents.reject');

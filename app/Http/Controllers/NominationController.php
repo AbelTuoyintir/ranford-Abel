@@ -2,20 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Exception;
-use App\Models\Ticket;
-use App\Models\Nominee;
-use App\Models\documents;
-use App\Models\supporters;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
-use App\Models\running_mates;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\{Auth, DB, Hash, Http, Log, Mail};
+use Exception;
+
+use App\Models\{Nominee, Ticket, documents, running_mates, supporters};
 
 class NominationController extends Controller
 {
@@ -137,20 +129,38 @@ class NominationController extends Controller
 
     public function disqualify(Request $request, Nominee $nominee)
 {
+    
+    //dd($request->all());
     $validated = $request->validate([
-        'reason' => 'required|string|max:255'
+        'rejection_reason' => 'required|string|max:255'
     ]);
     
     $nominee->update([
         'status' => 'rejected',
-        'rejection_reason' => $validated['reason']
+        'rejection_reason' => $validated['rejection_reason']
     ]);
     
     return back()->with('success', 'Nominee disqualified');
 }
 
+ public function requalify(Request $request, Nominee $nominee)
+{
+    
+    //dd($request->all());
+    $validated = $request->validate([
+        'status' => 'required|string|max:255'
+    ]);
+    
+    $nominee->update([
+        'status' => $validated['status'],
+    ]);
+    
+    return back()->with('success', 'Nominee requalified');
+}
+
     public function show(Nominee $nominee)
     {
+       //dd($nominee->documents);
         return view('livewire.admin.show-nominees', compact('nominee'));
     }
 
@@ -376,7 +386,7 @@ private function fetchCgpaFromApi($schoolId)
             // Only update status if it's not already submitted
             if ($user->status !== 'submitted') {
                 $user->update([
-                    'status' => 'draft',  // Changed from 'saved' to 'draft' for consistency
+                    'status' => 'saved',  // Changed from 'saved' to 'draft' for consistency
                     'verified' => false,
                 ]);
             }
@@ -461,7 +471,7 @@ private function fetchCgpaFromApi($schoolId)
         
         // ✅ Set status based on button clicked
         if ($isSubmit) {
-            $nomineePayload['status'] = 'submitted';  // Final submission
+            $nomineePayload['status'] = 'saved';  // Final submission
             $nomineePayload['submitted_at'] = now();
         } else {
             $nomineePayload['status'] = 'draft';      // Save as draft
@@ -512,10 +522,10 @@ private function fetchCgpaFromApi($schoolId)
         DB::commit();
 
         if ($isSubmit) {
-            return redirect('/normination-landing-page')->with('success', $message);
+            return redirect('/normination-landing-page')->with('success', 'Nomination submitted successfully! Please check your email for guarantor confirmation links.');
         }
 
-        return redirect(/normination-landing-page)->with('success', 'Draft saved successfully. You can continue later.');
+        return redirect('/normination-landing-page')->with('success', 'Draft saved successfully. You can continue later.');
         
     } catch (\Exception $e) {
         DB::rollBack();

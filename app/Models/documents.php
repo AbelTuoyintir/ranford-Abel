@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use App\Models\Nominee;
 use Illuminate\Database\Eloquent\Model;
+
+use App\Models\Nominee;
 
 class documents extends Model
 {
@@ -12,6 +13,7 @@ class documents extends Model
         'nominee_id',
         'type',
         'path',
+        'status',
         'verified'
     ];
 

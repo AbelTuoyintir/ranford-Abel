@@ -372,14 +372,14 @@
     
             <!-- Action Buttons -->
             <div class="mt-6 flex flex-col sm:flex-row gap-2">
-                @if($nominee->status !== 'approved')
-                {{-- <form action="{{ route('nominees.promote', $nominee->id) }}" method="POST" class="flex-1">
+                @if($nominee->status == 'rejected')
+                <form action="{{ route('nominees.requalify', $nominee->id) }}" method="POST" class="flex-1">
                     @csrf
-                    <input type="hidden" name="status" value="approved">
+                    <input type="hidden" name="status" value="saved">
                     <button type="submit" class=" h-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md shadow flex items-center justify-center">
-                        Approve Nomination
+                        Reapprove {{ ucfirst($nominee->role) }}
                     </button>
-                </form> --}}
+                </form>
                 @endif
             
                 @if($nominee->status !== 'rejected')

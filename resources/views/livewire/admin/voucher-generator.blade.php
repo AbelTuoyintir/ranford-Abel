@@ -224,10 +224,7 @@
                 <p class="text-sm text-gray-600">This voucher is required for the UCC electronic voting process.</p>
                 <p class="text-sm text-gray-600 mt-2">Keep this information secure and do not share with unauthorized persons.</p>
                 
-                <div class="mt-8 pt-4 border-t border-gray-300">
-                    <p class="text-xs text-gray-500">Generated on: <span id="printDate"></span></p>
-                    <p class="text-xs text-gray-500 mt-1">© University of Cape Coast - Electoral Commission</p>
-                </div>
+               
             </div>
         </div>
     </div>

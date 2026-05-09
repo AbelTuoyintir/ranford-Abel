@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('nominee_id')->constrained()->onDelete('cascade');
             $table->string('path');
             $table->enum('type', ['cgpa', 'fee_receipt', 'cv', 'medical_report', 'passport_photo']);
+            $table->enum('status', ['draft', 'saved'])->default('draft');
             $table->boolean('verified')->default(false);
             $table->timestamps();
         });
