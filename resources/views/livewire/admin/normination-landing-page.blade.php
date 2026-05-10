@@ -449,61 +449,73 @@
         </footer>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Get modal elements
-            const nominationModal = document.getElementById('nominationModal');
-            const statusModal = document.getElementById('statusModal');
-            const loadingModal = document.getElementById('loadingModal');
-            const nominateBtn = document.getElementById('nominateBtn');
-            const nominateBtn1 = document.getElementById('nominateBtn1');
-            const checkStatusBtn = document.getElementById('checkStatusBtn');
-            const checkStatusOnlyBtn = document.getElementById('checkStatusOnlyBtn');
-            const closeButtons = document.querySelectorAll('.close');
-            const nominationForm = document.getElementById('nominationForm');
-            
-            // Open nomination modal
+   <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get modal elements
+        const nominationModal = document.getElementById('nominationModal');
+        const statusModal = document.getElementById('statusModal');
+        const loadingModal = document.getElementById('loadingModal');
+        const nominateBtn = document.getElementById('nominateBtn');
+        const nominateBtn1 = document.getElementById('nominateBtn1');
+        const checkStatusBtn = document.getElementById('checkStatusBtn');
+        const checkStatusOnlyBtn = document.getElementById('checkStatusOnlyBtn');
+        const closeButtons = document.querySelectorAll('.close');
+        const nominationForm = document.getElementById('nominationForm');
+        
+        // ✅ FIXED: Open nomination modal (for starting new nomination)
+        if (nominateBtn) {
             nominateBtn.addEventListener('click', function() {
                 nominationModal.style.display = 'block';
             });
+        }
+        
+        if (nominateBtn1) {
             nominateBtn1.addEventListener('click', function() {
-                nominationModal_print.style.display = 'block';
-            });
-            
-            // Open status check modal
-            checkStatusBtn.addEventListener('click', function() {
                 nominationModal.style.display = 'block';
             });
-            
-            // Close modals when clicking X
-            closeButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    nominationModal.style.display = 'none';
-                    statusModal.style.display = 'none';
-                    loadingModal.style.display = 'none';
-                });
+        }
+        
+        // ✅ FIXED: Open status check modal (this was wrong)
+        if (checkStatusBtn) {
+            checkStatusBtn.addEventListener('click', function() {
+                // Clear previous values
+                document.getElementById('Voucher').value = '';
+                document.getElementById('Password').value = '';
+                // Open the nomination modal which contains the status check form
+                nominationModal.style.display = 'block';
             });
-            
-            // Close modals when clicking outside
-            window.addEventListener('click', function(event) {
-                if (event.target === nominationModal) {
-                    nominationModal.style.display = 'none';
-                }
-                if (event.target === statusModal) {
-                    statusModal.style.display = 'none';
-                }
-                if (event.target === loadingModal) {
-                    loadingModal.style.display = 'none';
-                }
+        }
+        
+        // Close modals when clicking X
+        closeButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                nominationModal.style.display = 'none';
+                statusModal.style.display = 'none';
+                loadingModal.style.display = 'none';
             });
-            
-            // Check status only
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            if (event.target === nominationModal) {
+                nominationModal.style.display = 'none';
+            }
+            if (event.target === statusModal) {
+                statusModal.style.display = 'none';
+            }
+            if (event.target === loadingModal) {
+                loadingModal.style.display = 'none';
+            }
+        });
+        
+        // ✅ FIXED: Check status only
+        if (checkStatusOnlyBtn) {
             checkStatusOnlyBtn.addEventListener('click', async function() {
                 const voucherCode = document.getElementById('Voucher').value;
                 const voucherPassword = document.getElementById('Password').value;
                 
                 if (!voucherCode || !voucherPassword) {
-                    alert('Please enter both voucher code and password');
+                    alert('⚠️ Please enter both voucher code and password');
                     return;
                 }
                 
@@ -512,13 +524,19 @@
                     loadingModal.style.display = 'block';
                     nominationModal.style.display = 'none';
                     
+                    // Get CSRF token
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+                    if (!csrfToken) {
+                        throw new Error('CSRF token not found. Please refresh the page.');
+                    }
+                    
                     // Make API call to check status
                     const response = await fetch('/nomination/status', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                            'X-CSRF-TOKEN': csrfToken.content
                         },
                         body: JSON.stringify({
                             voucher: voucherCode,
@@ -529,7 +547,7 @@
                     const data = await response.json();
                     
                     if (!response.ok) {
-                        throw new Error(data.error || 'Failed to check status');
+                        throw new Error(data.message || data.error || 'Failed to check status');
                     }
                     
                     // Hide loading modal and display status result
@@ -538,100 +556,147 @@
                     
                 } catch (error) {
                     loadingModal.style.display = 'none';
-                    alert(error.message);
+                    alert('❌ ' + error.message);
                     console.error('Error checking status:', error);
                 }
             });
+        }
+        
+        // Function to display status result
+        function displayStatusResult(data) {
+            let statusContent = '';
+            let statusClass = '';
+            let icon = '';
             
-            // Function to display status result
-            function displayStatusResult(data) {
-                let statusContent = '';
-                let statusClass = '';
-                let icon = '';
-                
-                if (data.status === 'rejected') {
-                    statusClass = 'status-rejected';
-                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-                } else if (data.status === 'approved') {
+            // Handle different status types
+            const status = data.status;
+            const role = data.role;
+            const roleDisplay = data.role_display;
+            const statusDisplay = data.status_display;
+            const message = data.message;
+            const updatedAt = data.updated_at;
+            const rejectionReason = data.rejection_reason;
+            
+            // Set icon and class based on status
+            if (status === 'rejected') {
+                statusClass = 'status-rejected';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+            } 
+            else if (status === 'approved') {
+                if (role === 'candidate') {
+                    statusClass = 'status-candidate';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>';
+                } else if (role === 'aspirant') {
+                    statusClass = 'status-aspirant';
+                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+                } else {
                     statusClass = 'status-approved';
                     icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>';
-                } else {
-                    statusClass = 'status-pending';
-                    icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
                 }
-                switch(data.status) {
-                    case 'nominee':
-                        statusClass = 'status-nominee';
-                        icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
-                        break;
-                    case 'aspirant':
-                        statusClass = 'status-aspirant';
-                        icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
-                        break;
-                    case 'candidate':
-                        statusClass = 'status-candidate';
-                        icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>';
-                        break;
-                    case 'rejected':
-                        statusClass = 'status-rejected';
-                        icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-                        break;
-                }
-                
-                // Build rejection reason if available
-                const rejectionReason = data.rejection_reason 
-                    ? `<div class="mt-4 p-3 bg-red-50 border-l-4 border-red-500">
-                          <p class="text-red-700"><strong>Reason:</strong> ${data.rejection_reason}</p>
-                       </div>`
-                    : '';
-                
-                statusContent = `
-                    <div class="text-center p-6 ${statusClass}">
-                        <div class="mx-auto w-24 h-24 mb-4">${icon}</div>
-                        <h3 class="text-2xl font-bold text-ucc-navy mb-2">Status: ${data.status_display}</h3>
-                        <p class="text-gray-600 mb-4">${data.message}</p>
-                        <p class="text-sm text-gray-500">Last updated: ${data.updated_at}</p>
-                        ${rejectionReason}
-                    </div>
-                `;
-                
-                document.getElementById('statusContent').innerHTML = statusContent;
+            }
+            else if (status === 'submitted') {
+                statusClass = 'status-submitted';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+            }
+            else if (status === 'saved') {
+                statusClass = 'status-saved';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3M12 3v8m0 0l-3-3m3 3l3-3" /></svg>';
+            }
+            else if (status === 'draft') {
+                statusClass = 'status-draft';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>';
+            }
+            else if (status === 'not_started') {
+                statusClass = 'status-not-started';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>';
+            }
+            else {
+                statusClass = 'status-pending';
+                icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+            }
+            
+            // Build rejection reason if available
+            const rejectionHtml = rejectionReason 
+                ? `<div class="mt-4 p-3 bg-red-50 border-l-4 border-red-500 rounded">
+                      <p class="text-red-700 font-semibold"><i class="fas fa-exclamation-triangle"></i> Reason for Rejection:</p>
+                      <p class="text-red-600 mt-1">${escapeHtml(rejectionReason)}</p>
+                   </div>`
+                : '';
+            
+            // Build position display
+            const positionHtml = data.position 
+                ? `<div class="mt-3 p-2 bg-gray-50 rounded">
+                      <p class="text-sm text-gray-600"><strong>Position:</strong> ${escapeHtml(data.position)}</p>
+                   </div>`
+                : '';
+            
+            statusContent = `
+                <div class="text-center p-6 ${statusClass}">
+                    <div class="mx-auto w-24 h-24 mb-4">${icon}</div>
+                    <h3 class="text-2xl font-bold text-ucc-navy mb-2">Status: ${escapeHtml(statusDisplay || 'Unknown')}</h3>
+                    ${roleDisplay ? `<p class="text-lg text-ucc-blue mb-2">Role: ${escapeHtml(roleDisplay)}</p>` : ''}
+                    <p class="text-gray-600 mb-4">${escapeHtml(message || 'Your nomination is being processed.')}</p>
+                    ${positionHtml}
+                    ${updatedAt ? `<p class="text-sm text-gray-500">Last updated: ${escapeHtml(updatedAt)}</p>` : ''}
+                    ${rejectionHtml}
+                </div>
+            `;
+            
+            const statusContentElement = document.getElementById('statusContent');
+            if (statusContentElement) {
+                statusContentElement.innerHTML = statusContent;
                 statusModal.style.display = 'block';
             }
-            
-            // Animation code
-            gsap.timeline({repeat: -1, repeatDelay: 2})
-                .to("#ballot", {y: -20, duration: 1})
-                .to("#ballot", {y: 150, duration: 1, delay: 0.5, ease: "bounce.out"});
-            
-            // Scroll animation for cards
-            const cards = document.querySelectorAll('.card-hover');
-            
-            function checkScroll() {
-                cards.forEach(card => {
-                    const cardPosition = card.getBoundingClientRect().top;
-                    const screenPosition = window.innerHeight / 1.3;
-                    
-                    if (cardPosition < screenPosition) {
-                        card.style.opacity = 1;
-                        card.style.transform = 'translateY(0)';
-                    }
-                });
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Animation code (only if GSAP is loaded)
+        if (typeof gsap !== 'undefined') {
+            const ballotElement = document.getElementById('ballot');
+            if (ballotElement) {
+                gsap.timeline({repeat: -1, repeatDelay: 2})
+                    .to("#ballot", {y: -20, duration: 1})
+                    .to("#ballot", {y: 150, duration: 1, delay: 0.5, ease: "bounce.out"});
             }
-            
-            // Set initial state
+        }
+        
+        // Scroll animation for cards
+        const cards = document.querySelectorAll('.card-hover');
+        
+        function checkScroll() {
             cards.forEach(card => {
-                card.style.opacity = 0;
-                card.style.transform = 'translateY(50px)';
-                card.style.transition = 'all 0.6s ease-out';
+                const cardPosition = card.getBoundingClientRect().top;
+                const screenPosition = window.innerHeight / 1.3;
+                
+                if (cardPosition < screenPosition) {
+                    card.style.opacity = 1;
+                    card.style.transform = 'translateY(0)';
+                }
             });
-            
-            // Check on load and scroll
-            window.addEventListener('scroll', checkScroll);
-            checkScroll();
-
-            // Slide-in animation for all sections
-            const sections = document.querySelectorAll('.slide-in-section');
+        }
+        
+        // Set initial state
+        cards.forEach(card => {
+            card.style.opacity = 0;
+            card.style.transform = 'translateY(50px)';
+            card.style.transition = 'all 0.6s ease-out';
+        });
+        
+        // Check on load and scroll
+        window.addEventListener('scroll', checkScroll);
+        checkScroll();
+        
+        // Slide-in animation for all sections (using GSAP if available)
+        const sections = document.querySelectorAll('.slide-in-section');
+        
+        if (typeof gsap !== 'undefined') {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach(entry => {
                     if (entry.isIntersecting) {
@@ -647,11 +712,18 @@
             }, {
                 threshold: 0.5
             });
-
+            
             sections.forEach(section => {
                 observer.observe(section);
             });
-        });
-    </script>
+        } else {
+            // Fallback for GSAP not loaded
+            sections.forEach(section => {
+                section.style.opacity = 1;
+                section.style.transform = 'translateY(0)';
+            });
+        }
+    });
+</script>
 </body>
 </html>

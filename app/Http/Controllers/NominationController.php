@@ -1126,72 +1126,100 @@ public function checkStatus(Request $request)
                 'status' => 404
             ], 404);
         }
+         // Find nomination
         $nomination = Nominee::where('reg_number', $ticket->school_id)->first();
-        // Prepare response
-        $response = [
-            'status' => $nomination->status,
-            'status_display' => ucfirst($nomination->role),
-            'position' => $nomination->position,
-            'updated_at' => $nomination->updated_at->format('M d, Y H:i'),
+
+        // If no nomination exists yet
+        if (!$nomination) {
+            return response()->json([
+                'success' => true,
+                'status' => 'not_started',
+                'status_display' => 'Not Started',
+                'message' => 'You have not started your nomination. Please begin the nomination process.',
+                'position' => null,
+                'role' => null,
+                'role_display' => null,
+                'updated_at' => null,
+            ]);
+        }
+
+        // Role display mapping
+        $roleDisplayMap = [
+            'nominee' => 'Nominee',
+            'aspirant' => 'Aspirant',
+            'candidate' => 'Candidate',
+            'applicant' => 'Applicant',
         ];
 
-        // Add status-specific messages
-        
-        // Update the switch statement in your checkStatus method
+        $response = [
+            'success' => true,
+            'status' => $nomination->status,
+            'role' => $nomination->role ?? 'applicant',
+            'role_display' => $roleDisplayMap[$nomination->role] ?? ucfirst((string) $nomination->role),
+            'position' => $nomination->position,
+            'updated_at' => optional($nomination->updated_at)->format('M d, Y H:i'),
+            'status_display' => null,
+            'message' => null,
+        ];
+
+        // Add status-specific messages and stage labels
         if ($nomination->status === 'draft') {
-            $response['message'] = "Your nomination is saved as draft. Please continue and submit.";
-            $response['status'] = 'draft';
+            $response['message'] = "Your nomination is saved as a draft. Please continue and complete your nomination.";
             $response['status_display'] = 'Draft';
-        } elseif ($nomination->status === 'saved') {
-            $response['message'] = "Nomination details saved. Please upload required documents to complete submission.";
-            $response['status'] = 'saved';
+        } 
+        elseif ($nomination->status === 'saved') {
+            $response['message'] = "Nomination details saved. Please upload all required documents to complete your submission.";
             $response['status_display'] = 'Saved';
-        } elseif ($nomination->status === 'rejected') {
-            $response['message'] = "Your nomination for {$nomination->position} didn't meet requirements.";
-            $response['rejection_reason'] = $nomination->rejection_reason ?? 'No reason provided';
-            $response['status'] = 'rejected';
+        } 
+        elseif ($nomination->status === 'submitted') {
+            $response['message'] = "Your nomination has been fully submitted and is under review. You will be notified once reviewed.";
+            $response['status_display'] = 'Submitted - Pending Review';
+        } 
+        elseif ($nomination->status === 'rejected') {
+            $response['message'] = "Your nomination for {$nomination->position} did not meet the requirements.";
+            $response['rejection_reason'] = $nomination->rejection_reason ?? 'No specific reason provided. Please contact the electoral commission.';
             $response['status_display'] = 'Rejected';
-        } elseif ($nomination->status === 'submitted') {
-            $response['message'] = "Your nomination has been fully submitted and is under review.";
-            $response['status'] = 'submitted';
-            $response['status_display'] = 'Submitted';
-        } else {
-            // Check the role for approved nominations
+        } 
+        elseif ($nomination->status === 'approved') {
+            // Handle different role levels
             switch ($nomination->role) {
                 case 'nominee':
-                    $response['message'] = "Your nomination for {$nomination->position} has been received.";
-                    $response['status'] = 'approved';
-                    $response['status_display'] = 'Nominee';
+                    $response['message'] = "Congratulations! Your nomination for {$nomination->position} has been approved. You are now a registered nominee.";
                     break;
                 case 'aspirant':
-                    $response['message'] = "You've been cleared as an aspirant for {$nomination->position}.";
-                    $response['status'] = 'approved';
-                    $response['status_display'] = 'Aspirant';
+                    $response['message'] = "Congratulations! You've been cleared as an aspirant for {$nomination->position}. Proceed to campaign.";
                     break;
                 case 'candidate':
-                    $response['message'] = "You're now an official candidate for {$nomination->position}.";
-                    $response['status'] = 'approved';
-                    $response['status_display'] = 'Candidate';
+                    $response['message'] = "Congratulations! You're now an official candidate for {$nomination->position}. Good luck with your campaign!";
                     break;
                 default:
-                    $response['message'] = "Your nomination status is being processed.";
-                    $response['status'] = 'pending';
-                    $response['status_display'] = 'Pending';
+                    $response['message'] = "Your nomination has been approved. Status: " . ($response['role_display'] ?? 'Approved');
+                    break;
             }
+            $response['status_display'] = 'Approved - ' . ($response['role_display'] ?? 'Approved');
+        } 
+        else {
+            // Fallback for any other status
+            $response['message'] = "Your nomination status is being processed. Current status: " . ucfirst($nomination->status);
+            $response['status_display'] = ucfirst($nomination->status);
         }
+
         return response()->json($response);
 
     } catch (\Illuminate\Validation\ValidationException $e) {
         return response()->json([
+            'success' => false,
             'error' => 'Validation failed',
             'messages' => $e->errors(),
             'status' => 422
         ], 422);
     } catch (\Exception $e) {
-        Log::error('Status check error: ' . $e->getMessage());
+        \Log::error('Status check error: ' . $e->getMessage());
+        \Log::error($e->getTraceAsString());
         return response()->json([
-            'error' => 'Please there is no forms submit by this applicant',
-            'status' => 500
+            'success' => false,
+            'error' => 'An unexpected error occurred',
+            'message' => 'Unable to check nomination status. Please try again later or contact support.'
         ], 500);
     }
 }
