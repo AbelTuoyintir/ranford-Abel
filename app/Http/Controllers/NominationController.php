@@ -516,7 +516,7 @@ public function storeDocuments(Request $request, Nominee $user)
         // ✅ Set status based on button clicked
         if ($isSubmit) {
             $nomineePayload['status'] = 'saved';  // Final submission
-            $nomineePayload['role'] = 'nominee'; // Ensure role is set to applicant on final submission
+            $nomineePayload['role'] = 'nominee'; // Ensure role is set to nominee on final submission
             $nomineePayload['submitted_at'] = now();
         } else {
             $nomineePayload['status'] = 'draft';      // Save as draft
@@ -656,7 +656,7 @@ public function storeDocuments(Request $request, Nominee $user)
             'photo_path' => 'https://cdn.ucc.edu.gh/photos/?tag=' . $regNumber,
             'nominee_cgpa' => $cgpa === '' ? 0 : $cgpa,
             'verified' => $isSubmit ? true : ($existing->verified ?? false),
-            'role' => $existing->role ?? 'applicant',
+            'role' => $existing->role ?? 'nominee',
             'status' => $isSubmit ? 'saved' : 'draft',
         ];
     }
@@ -808,7 +808,7 @@ public function storeDocuments(Request $request, Nominee $user)
                         'photo_path' => 'https://cdn.ucc.edu.gh/photos/?tag=' . $validated['reg_number'],
                         'nominee_cgpa' => $validated['nominee_cgpa'],
                         'verified' => $validated['verified'] === 'on' || $validated['verified'] === '1' || $validated['verified'] === true,
-                        'role' => 'applicant',
+                        'role' => 'nominee',
                         'status' => 'submitted'
                     ]);
 
@@ -904,7 +904,7 @@ public function storeDocuments(Request $request, Nominee $user)
                         'photo_path' => 'https://cdn.ucc.edu.gh/photos/?tag=' . $validated['reg_number'],
                         'nominee_cgpa' => $validated['nominee_cgpa'],
                         'verified' => $validated['verified'] === 'on' || $validated['verified'] === '1' || $validated['verified'] === true,
-                        'role' => 'applicant',
+                        'role' => 'nominee',
                         'status' => 'submitted'
                     ]);
 
@@ -990,7 +990,7 @@ public function storeDocuments(Request $request, Nominee $user)
                 'photo_path' => 'https://cdn.ucc.edu.gh/photos/?tag=' . $validated['reg_number'],
                 'nominee_cgpa' => $validated['nominee_cgpa'],
                 'verified' => $validated['verified'] === 'on' || $validated['verified'] === '1' || $validated['verified'] === true,
-                'role' => 'applicant',
+                'role' => 'nominee',
                 'status' => 'submitted'
             ]);
 
@@ -1148,13 +1148,13 @@ public function checkStatus(Request $request)
             'nominee' => 'Nominee',
             'aspirant' => 'Aspirant',
             'candidate' => 'Candidate',
-            'applicant' => 'Applicant',
+            'nominee' => 'nominee',
         ];
 
         $response = [
             'success' => true,
             'status' => $nomination->status,
-            'role' => $nomination->role ?? 'applicant',
+            'role' => $nomination->role ?? 'nominee',
             'role_display' => $roleDisplayMap[$nomination->role] ?? ucfirst((string) $nomination->role),
             'position' => $nomination->position,
             'updated_at' => optional($nomination->updated_at)->format('M d, Y H:i'),

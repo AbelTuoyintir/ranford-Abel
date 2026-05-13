@@ -161,9 +161,9 @@ public function NorminationForm_Print(Request $request)
     }
 
     // Check if the Voucher is expired
-    // if (Carbon::now()->greaterThan($ticket->expire_at)) {
-        // return redirect()->back()->with('error', 'Voucher has expired');
-    // }
+    if (Carbon::now()->greaterThan($ticket->expire_at)) {
+        return redirect()->back()->with('error', 'Voucher has expired');
+    }
 
     // Compare password 4bDRaTs5RP
     if (Hash::check($validated['Password'], $ticket->Password)) {
@@ -252,10 +252,10 @@ public function NorminationLogin(Request $request)
                 'error',
                 'This nomination is already submitted and cannot be edited.'
             );
-        }
-
-        if ($user->status === 'saved' && $user->role === 'aspirant') {
+        }elseif ($user->status === 'saved' && $user->role === 'aspirant') {
             return redirect('documents-uploads')->with('success', 'Continue by uploading your supporting documents.');
+        }elseif ($user->status === 'draft' && $user->role === 'nominee') {
+            return redirect('nomination-forms')->with('success', 'Continue by uploading your supporting documents.');
         }else{  
             return redirect('normination-landing-page')->with('error', 'Your nomination is already in progress. Please wait for admin approval.');
         }

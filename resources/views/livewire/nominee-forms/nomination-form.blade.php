@@ -1103,7 +1103,7 @@
       }
       
       // Fill form fields
-      document.getElementById('fullName').value = `${user.firstName} ${user.lastName}`;
+      document.getElementById('fullName').value = `${user.firstName} ${user.middleName} ${user.lastName}`;
       document.getElementById('regNumber').value = user.schoolId;
       document.getElementById('hall').value = user.hall;
       document.getElementById('program').value = user.program;

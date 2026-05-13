@@ -368,7 +368,7 @@
                     
                     <div class="flex justify-between">
                         <button type="submit" class="ucc-navy text-white px-6 py-2 rounded-md font-medium hover:bg-blue-800 transition duration-300">
-                            Proceed to Nomination
+                            Proceed to Print
                         </button>
                     </div>
                 </form>
@@ -453,6 +453,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Get modal elements
         const nominationModal = document.getElementById('nominationModal');
+        const nominationModal_print = document.getElementById('nominationModal_print')
         const statusModal = document.getElementById('statusModal');
         const loadingModal = document.getElementById('loadingModal');
         const nominateBtn = document.getElementById('nominateBtn');
@@ -471,9 +472,10 @@
         
         if (nominateBtn1) {
             nominateBtn1.addEventListener('click', function() {
-                nominationModal.style.display = 'block';
+                nominationModal_print.style.display = 'block';
             });
         }
+
         
         // ✅ FIXED: Open status check modal (this was wrong)
         if (checkStatusBtn) {
